@@ -1,0 +1,835 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>The Monte Carlo Minesweeper | AI-Powered Entropy Analysis Game</title>
+    <meta name="description" content="Play an advanced Minesweeper game with Monte Carlo probability calculations and entropy analysis. Use AI-powered suggestions to make optimal moves and master strategic gameplay.">
+    <meta name="keywords" content="minesweeper, monte carlo, probability, entropy, AI game, strategy game, puzzle game, online minesweeper, minesweeper solver">
+    <meta name="author" content="otischan-dev">
+    <meta name="robots" content="index, follow">
+    
+    <!-- Open Graph / Social Media -->
+    <meta property="og:type" content="website">
+    <meta property="og:title" content="The Monte Carlo Minesweeper - Entropy-Aware Strategy Game">
+    <meta property="og:description" content="Experience Minesweeper with advanced probability calculations and AI-powered optimal move suggestions.">
+    <meta property="og:site_name" content="Monte Carlo Minesweeper">
+    
+    <!-- Twitter Card -->
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="The Monte Carlo Minesweeper">
+    <meta name="twitter:description" content="AI-powered Minesweeper with Monte Carlo probability and entropy analysis.">
+    
+    <!-- Structured Data -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "Game",
+      "name": "The Monte Carlo Minesweeper",
+      "description": "An advanced Minesweeper game featuring Monte Carlo simulation for probability calculation and entropy-based optimal move suggestions.",
+      "genre": ["Puzzle", "Strategy", "Logic"],
+      "gamePlatform": "Web Browser",
+      "applicationCategory": "Game",
+      "offers": {
+        "@type": "Offer",
+        "price": "0",
+        "priceCurrency": "USD"
+      },
+      "featureList": [
+        "Monte Carlo probability calculation",
+        "Entropy-based move analysis",
+        "AI-powered optimal move suggestions",
+        "Real-time probability visualization",
+        "Strategic information gain metrics"
+      ]
+    }
+    </script>
+    <style>
+        :root {
+            --bg-color: #0d1117;
+            --grid-bg: #21262d;
+            --cell-closed: #30363d;
+            --cell-open: #161b22;
+            --text-color: #c9d1d9;
+            --accent: #58a6ff;
+            --danger: #f85149;
+            --safe: #2ea043;
+            --entropy: #56d4dd;
+            --font: 'Courier New', Courier, monospace;
+        }
+
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            font-family: var(--font);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            margin: 0;
+            padding: 20px;
+            user-select: none;
+            box-sizing: border-box;
+        }
+
+        h1 {
+            margin-bottom: 5px;
+            font-size: 1.5rem;
+            color: var(--accent);
+        }
+
+        h2 { margin-bottom: 10px; font-size: 1.2rem; }
+        
+        .controls {
+            margin-bottom: 15px;
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+
+        button {
+            background-color: var(--grid-bg);
+            border: 1px solid #30363d;
+            color: var(--accent);
+            padding: 8px 16px;
+            cursor: pointer;
+            font-family: var(--font);
+            border-radius: 6px;
+            transition: all 0.2s;
+            font-weight: bold;
+        }
+
+        button:hover { background-color: #30363d; }
+        button:active { transform: translateY(1px); }
+        
+        #entropy-btn { color: #56d4dd; border-color: #56d4dd; }
+        #entropy-btn:hover { background-color: #1a3a3d; }
+
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(16, 38px);
+            grid-template-rows: repeat(16, 38px);
+            gap: 2px;
+            background-color: var(--grid-bg);
+            padding: 5px;
+            border-radius: 8px;
+            border: 1px solid #30363d;
+        }
+
+        .cell {
+            width: 38px;
+            height: 38px;
+            background-color: var(--cell-closed);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            cursor: pointer;
+            border-radius: 4px;
+            position: relative;
+            font-size: 16px;
+        }
+
+        .cell:hover { filter: brightness(1.2); }
+        
+        .cell.open { background-color: var(--cell-open); cursor: default; }
+        .cell.mine { background-color: var(--danger); color: white; }
+        .cell.flagged::after { content: "🚩"; font-size: 16px; }
+        .cell.best-pick { box-shadow: 0 0 0 3px #56d4dd, 0 0 12px #56d4dd; z-index: 20; }
+
+        .val-1 { color: #58a6ff; }
+        .val-2 { color: #2ea043; }
+        .val-3 { color: #d29922; }
+        .val-4 { color: #f85149; }
+        .val-5 { color: #db6d28; }
+        .val-6 { color: #8b949e; }
+        .val-7 { color: #f0883e; }
+        .val-8 { color: #ff7b72; }
+
+        .prob-overlay {
+            position: absolute;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background-color: rgba(0,0,0,0.6);
+            color: white;
+            font-size: 11px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            border-radius: 4px;
+            pointer-events: none;
+            z-index: 10;
+            line-height: 1.3;
+        }
+        
+        .prob-overlay .entropy {
+            color: #56d4dd;
+            font-size: 9px;
+        }
+
+        .status-bar {
+            margin-top: 15px;
+            font-size: 0.9rem;
+            color: #8b949e;
+            text-align: center;
+        }
+        
+        .info-panel {
+            margin-top: 15px;
+            padding: 15px;
+            background: var(--grid-bg);
+            border-radius: 8px;
+            border: 1px solid #30363d;
+            max-width: 550px;
+            font-size: 0.85rem;
+        }
+        
+        .info-panel h3 {
+            color: var(--entropy);
+            margin: 0 0 10px 0;
+            font-size: 1rem;
+        }
+        
+        .info-panel p {
+            margin: 5px 0;
+            line-height: 1.4;
+        }
+        
+        .recommendation {
+            margin-top: 10px;
+            padding: 10px;
+            background: rgba(86, 212, 221, 0.1);
+            border: 1px solid var(--entropy);
+            border-radius: 6px;
+        }
+
+        @media (max-width: 700px) {
+            .grid {
+                grid-template-columns: repeat(16, 24px);
+                grid-template-rows: repeat(16, 24px);
+            }
+            .cell {
+                width: 24px;
+                height: 24px;
+                font-size: 12px;
+            }
+            .prob-overlay {
+                font-size: 8px;
+            }
+            .prob-overlay .entropy {
+                font-size: 7px;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <h1>The Monte Carlo Minesweeper</h1>
+    <h2>🎲 Entropy-Aware Minesweeper</h2>
+    
+    <div class="controls">
+        <button onclick="initGame()">Reset</button>
+        <button id="entropy-btn" onclick="calculateEntropy()">🧠 Analyze Probabilities</button>
+    </div>
+
+    <div class="grid" id="grid"></div>
+    
+    <div class="status-bar">
+        Mines: <span id="mine-count">60</span> | Status: <span id="game-status">Playing</span>
+    </div>
+    
+    <div class="info-panel">
+        <h3>📊 Probability & Entropy Strategy</h3>
+        <p>When multiple cells have similar survival probability, choose the one with <strong>highest expected information gain</strong>.</p>
+        <p>• <strong>Probability</strong> = chance of survival</p>
+        <p>• <strong>Entropy</strong> = information gained if clicked safely</p>
+        <div class="recommendation" id="recommendation">
+            Click "Analyze Probabilities" to find the optimal move.
+        </div>
+    </div>
+
+<script>
+    const ROWS = 16;
+    const COLS = 16;
+    const MINES = 60;
+    let grid = [];
+    let gameOver = false;
+    let flags = 0;
+    let leftDown = false;
+    let rightDown = false;
+    let lastProbabilities = null;
+
+    function initGame() {
+        const gridEl = document.getElementById('grid');
+        gridEl.innerHTML = '';
+        grid = [];
+        gameOver = false;
+        flags = 0;
+        lastProbabilities = null;
+        document.getElementById('game-status').innerText = "Playing";
+        document.getElementById('game-status').style.color = "#8b949e";
+        document.getElementById('mine-count').innerText = MINES;
+        document.getElementById('recommendation').innerHTML = "Click \"Analyze Probabilities\" to find the optimal move.";
+
+        for (let r = 0; r < ROWS; r++) {
+            let row = [];
+            for (let c = 0; c < COLS; c++) {
+                let cell = {
+                    r, c,
+                    isMine: false,
+                    isOpen: false,
+                    isFlagged: false,
+                    neighborMines: 0,
+                    element: null
+                };
+                
+                const el = document.createElement('div');
+                el.className = 'cell';
+                el.onmousedown = (e) => handleMouseDown(e, r, c);
+                el.onmouseup = (e) => handleMouseUp(e, r, c);
+                el.oncontextmenu = (e) => e.preventDefault();
+                
+                cell.element = el;
+                row.push(cell);
+                gridEl.appendChild(el);
+            }
+            grid.push(row);
+        }
+
+        let minesPlaced = 0;
+        while (minesPlaced < MINES) {
+            let r = Math.floor(Math.random() * ROWS);
+            let c = Math.floor(Math.random() * COLS);
+            if (!grid[r][c].isMine) {
+                grid[r][c].isMine = true;
+                minesPlaced++;
+            }
+        }
+
+        for (let r = 0; r < ROWS; r++) {
+            for (let c = 0; c < COLS; c++) {
+                if (!grid[r][c].isMine) {
+                    grid[r][c].neighborMines = countNeighborMines(r, c);
+                }
+            }
+        }
+    }
+
+    function countNeighborMines(r, c) {
+        let count = 0;
+        for (let i = -1; i <= 1; i++) {
+            for (let j = -1; j <= 1; j++) {
+                let nr = r + i, nc = c + j;
+                if (nr >= 0 && nr < ROWS && nc >= 0 && nc < COLS) {
+                    if (grid[nr][nc].isMine) count++;
+                }
+            }
+        }
+        return count;
+    }
+
+    function handleMouseDown(e, r, c) {
+        if (gameOver) return;
+        e.preventDefault();
+        if (e.button === 0) leftDown = true;
+        if (e.button === 2) rightDown = true;
+        if (leftDown && rightDown) {
+            clearOverlays();
+            chordClick(r, c);
+        }
+    }
+    
+    function handleMouseUp(e, r, c) {
+        if (gameOver) return;
+        if (!leftDown || !rightDown) {
+            clearOverlays();
+            if (e.button === 2 && !leftDown) {
+                toggleFlag(r, c);
+            } else if (e.button === 0 && !rightDown) {
+                if (!grid[r][c].isFlagged) openCell(r, c);
+            }
+        }
+        if (e.button === 0) leftDown = false;
+        if (e.button === 2) rightDown = false;
+    }
+    
+    function chordClick(r, c) {
+        let cell = grid[r][c];
+        if (!cell.isOpen || cell.neighborMines === 0) return;
+        let flagCount = 0;
+        let neighbors = [];
+        for (let i = -1; i <= 1; i++) {
+            for (let j = -1; j <= 1; j++) {
+                if (i === 0 && j === 0) continue;
+                let nr = r + i, nc = c + j;
+                if (nr >= 0 && nr < ROWS && nc >= 0 && nc < COLS) {
+                    let neighbor = grid[nr][nc];
+                    if (neighbor.isFlagged) flagCount++;
+                    if (!neighbor.isOpen && !neighbor.isFlagged) neighbors.push({r: nr, c: nc});
+                }
+            }
+        }
+        if (flagCount === cell.neighborMines) {
+            neighbors.forEach(n => openCell(n.r, n.c));
+        }
+    }
+
+    function toggleFlag(r, c) {
+        if (grid[r][c].isOpen) return;
+        grid[r][c].isFlagged = !grid[r][c].isFlagged;
+        grid[r][c].element.classList.toggle('flagged');
+        flags += grid[r][c].isFlagged ? 1 : -1;
+        document.getElementById('mine-count').innerText = MINES - flags;
+    }
+
+    function openCell(r, c) {
+        let cell = grid[r][c];
+        if (cell.isOpen) return;
+        cell.isOpen = true;
+        cell.element.classList.add('open');
+        cell.element.classList.remove('flagged');
+        if (cell.isMine) {
+            cell.element.classList.add('mine');
+            cell.element.innerText = "💣";
+            endGame(false);
+            return;
+        }
+        if (cell.neighborMines > 0) {
+            cell.element.innerText = cell.neighborMines;
+            cell.element.classList.add(`val-${cell.neighborMines}`);
+        } else {
+            for (let i = -1; i <= 1; i++) {
+                for (let j = -1; j <= 1; j++) {
+                    let nr = r + i, nc = c + j;
+                    if (nr >= 0 && nr < ROWS && nc >= 0 && nc < COLS) {
+                        openCell(nr, nc);
+                    }
+                }
+            }
+        }
+        checkWin();
+    }
+
+    function endGame(win) {
+        gameOver = true;
+        const status = document.getElementById('game-status');
+        if (win) {
+            status.innerText = "You Win! 🎉";
+            status.style.color = "#2ea043";
+        } else {
+            status.innerText = "Game Over 💀";
+            status.style.color = "#f85149";
+            grid.flat().forEach(cell => {
+                if (cell.isMine) {
+                    cell.element.classList.add('mine');
+                    cell.element.innerText = "💣";
+                }
+            });
+        }
+    }
+
+    function checkWin() {
+        let safeOpen = 0;
+        grid.flat().forEach(c => { if (c.isOpen && !c.isMine) safeOpen++; });
+        if (safeOpen === (ROWS * COLS - MINES)) endGame(true);
+    }
+
+    function clearOverlays() {
+        document.querySelectorAll('.prob-overlay').forEach(el => el.remove());
+        document.querySelectorAll('.best-pick').forEach(el => el.classList.remove('best-pick'));
+    }
+
+    // ========== PROBABILITY CALCULATION ==========
+    
+    function runMonteCarlo() {
+        if (gameOver) return;
+        clearOverlays();
+        lastProbabilities = calculateProbabilities();
+        displayProbabilities(lastProbabilities, false);
+    }
+    
+    function calculateProbabilities() {
+        let unknowns = [];
+        let constraints = [];
+        let remainingMines = MINES - flags;
+        let frontierSet = new Set();
+
+        for (let r = 0; r < ROWS; r++) {
+            for (let c = 0; c < COLS; c++) {
+                let cell = grid[r][c];
+                if (cell.isOpen) {
+                    if (cell.neighborMines > 0) {
+                        let flaggedNeighbors = 0;
+                        let closedUnflagged = [];
+                        for (let i = -1; i <= 1; i++) {
+                            for (let j = -1; j <= 1; j++) {
+                                let nr = r + i, nc = c + j;
+                                if (nr >= 0 && nr < ROWS && nc >= 0 && nc < COLS) {
+                                    let neighbor = grid[nr][nc];
+                                    if (neighbor.isFlagged) flaggedNeighbors++;
+                                    if (!neighbor.isOpen && !neighbor.isFlagged) {
+                                        closedUnflagged.push(`${nr},${nc}`);
+                                        frontierSet.add(`${nr},${nc}`);
+                                    }
+                                }
+                            }
+                        }
+                        let adjustedVal = cell.neighborMines - flaggedNeighbors;
+                        if (closedUnflagged.length > 0 && adjustedVal >= 0) {
+                            constraints.push({r, c, val: adjustedVal, cells: closedUnflagged});
+                        }
+                    }
+                } else if (!cell.isFlagged) {
+                    unknowns.push({r, c});
+                }
+            }
+        }
+
+        if (unknowns.length === 0) return null;
+
+        let frontier = unknowns.filter(u => frontierSet.has(`${u.r},${u.c}`));
+        let interior = unknowns.filter(u => !frontierSet.has(`${u.r},${u.c}`));
+
+        if (constraints.length === 0) {
+            let prob = remainingMines / unknowns.length;
+            let result = { cells: {}, frontier, interior, totalConfigs: 1 };
+            unknowns.forEach(u => {
+                result.cells[`${u.r},${u.c}`] = { prob, isFrontier: false };
+            });
+            return result;
+        }
+
+        let frontierList = Array.from(frontierSet);
+        let frontierIndex = {};
+        frontierList.forEach((key, idx) => frontierIndex[key] = idx);
+        
+        let indexedConstraints = constraints.map(c => ({
+            val: c.val,
+            indices: c.cells.map(cell => frontierIndex[cell])
+        }));
+
+        let validConfigs = [];
+        let mineCounts = {};
+        frontierList.forEach(key => mineCounts[key] = 0);
+        
+        const MAX_CONFIGS = 100000;
+        let configCount = 0;
+        
+        function backtrack(idx, currentMines, mineCount) {
+            if (configCount >= MAX_CONFIGS) return;
+            
+            for (let constr of indexedConstraints) {
+                let placed = 0, unknown = 0;
+                for (let i of constr.indices) {
+                    if (i < idx) {
+                        if (currentMines[i]) placed++;
+                    } else {
+                        unknown++;
+                    }
+                }
+                if (placed > constr.val) return;
+                if (placed + unknown < constr.val) return;
+            }
+            
+            if (idx === frontierList.length) {
+                for (let constr of indexedConstraints) {
+                    let placed = 0;
+                    for (let i of constr.indices) {
+                        if (currentMines[i]) placed++;
+                    }
+                    if (placed !== constr.val) return;
+                }
+                
+                let frontierMines = mineCount;
+                let interiorMines = remainingMines - frontierMines;
+                if (interiorMines < 0 || interiorMines > interior.length) return;
+                
+                let weight = binomial(interior.length, interiorMines);
+                configCount++;
+                
+                for (let i = 0; i < frontierList.length; i++) {
+                    if (currentMines[i]) {
+                        mineCounts[frontierList[i]] += weight;
+                    }
+                }
+                validConfigs.push({mines: [...currentMines], frontierMines, weight});
+                return;
+            }
+            
+            currentMines[idx] = false;
+            backtrack(idx + 1, currentMines, mineCount);
+            
+            if (mineCount < remainingMines) {
+                currentMines[idx] = true;
+                backtrack(idx + 1, currentMines, mineCount + 1);
+                currentMines[idx] = false;
+            }
+        }
+        
+        let binomialCache = {};
+        function binomial(n, k) {
+            if (k < 0 || k > n) return 0;
+            if (k === 0 || k === n) return 1;
+            let key = `${n},${k}`;
+            if (binomialCache[key]) return binomialCache[key];
+            let result = binomial(n - 1, k - 1) + binomial(n - 1, k);
+            binomialCache[key] = result;
+            return result;
+        }
+        
+        backtrack(0, new Array(frontierList.length).fill(false), 0);
+        
+        if (validConfigs.length === 0) return null;
+        
+        let totalWeight = validConfigs.reduce((sum, cfg) => sum + cfg.weight, 0);
+        
+        let result = { cells: {}, frontier, interior, validConfigs, totalWeight, totalConfigs: validConfigs.length };
+        
+        frontier.forEach(u => {
+            let key = `${u.r},${u.c}`;
+            let prob = mineCounts[key] / totalWeight;
+            result.cells[key] = { prob, isFrontier: true };
+        });
+        
+        if (interior.length > 0) {
+            let interiorProb = 0;
+            for (let cfg of validConfigs) {
+                let interiorMines = remainingMines - cfg.frontierMines;
+                interiorProb += (cfg.weight / totalWeight) * (interiorMines / interior.length);
+            }
+            interior.forEach(u => {
+                result.cells[`${u.r},${u.c}`] = { prob: interiorProb, isFrontier: false };
+            });
+        }
+        
+        return result;
+    }
+    
+    function displayProbabilities(data, showEntropy) {
+        if (!data) {
+            document.getElementById('game-status').innerText = "No valid configs found";
+            return;
+        }
+        
+        for (let key in data.cells) {
+            let [r, c] = key.split(',').map(Number);
+            let {prob} = data.cells[key];
+            let percent = Math.round(prob * 100);
+            
+            let overlay = document.createElement('div');
+            overlay.className = 'prob-overlay';
+            overlay.innerHTML = `${percent}%`;
+            
+            if (percent === 100) overlay.style.backgroundColor = "rgba(248, 81, 73, 0.9)";
+            else if (percent === 0) overlay.style.backgroundColor = "rgba(46, 160, 67, 0.8)";
+            else if (percent > 50) overlay.style.backgroundColor = `rgba(219, 109, 40, ${prob})`;
+            else overlay.style.backgroundColor = `rgba(88, 166, 255, ${prob + 0.2})`;
+
+            grid[r][c].element.appendChild(overlay);
+        }
+        
+        document.getElementById('game-status').innerText = `Found ${data.totalConfigs} valid configs`;
+    }
+
+    // ========== ENTROPY CALCULATION ==========
+    
+    function calculateEntropy() {
+        if (gameOver) return;
+        clearOverlays();
+        
+        let probData = calculateProbabilities();
+        if (!probData) {
+            document.getElementById('recommendation').innerHTML = "Unable to calculate - no valid configurations found.";
+            return;
+        }
+        
+        let cellScores = [];
+        
+        for (let key in probData.cells) {
+            let [r, c] = key.split(',').map(Number);
+            let {prob, isFrontier} = probData.cells[key];
+            
+            if (prob >= 1) continue;
+            
+            let survivalProb = 1 - prob;
+            let expectedInfoGain = 0;
+            
+            if (isFrontier) {
+                let activeConstraints = 0;
+                let adjacentUnknowns = 0;
+                
+                for (let i = -1; i <= 1; i++) {
+                    for (let j = -1; j <= 1; j++) {
+                        let nr = r + i, nc = c + j;
+                        if (nr >= 0 && nr < ROWS && nc >= 0 && nc < COLS) {
+                            let neighbor = grid[nr][nc];
+                            if (neighbor.isOpen && neighbor.neighborMines > 0) {
+                                let flagsAround = 0;
+                                for (let di = -1; di <= 1; di++) {
+                                    for (let dj = -1; dj <= 1; dj++) {
+                                        let nnr = nr + di, nnc = nc + dj;
+                                        if (nnr >= 0 && nnr < ROWS && nnc >= 0 && nnc < COLS) {
+                                            if (grid[nnr][nnc].isFlagged) flagsAround++;
+                                        }
+                                    }
+                                }
+                                let remainingMinesNeeded = neighbor.neighborMines - flagsAround;
+                                if (remainingMinesNeeded > 0) {
+                                    activeConstraints++;
+                                }
+                            }
+                            if (!neighbor.isOpen && !neighbor.isFlagged) {
+                                adjacentUnknowns++;
+                            }
+                        }
+                    }
+                }
+                
+                let cellEntropy = 0;
+                if (prob > 0 && prob < 1) {
+                    cellEntropy = -prob * Math.log2(prob) - (1-prob) * Math.log2(1-prob);
+                }
+                
+                expectedInfoGain = activeConstraints * 0.5 + adjacentUnknowns * 0.3 + cellEntropy;
+            } else {
+                let maxNeighbors = 8;
+                let actualNeighbors = 0;
+                for (let i = -1; i <= 1; i++) {
+                    for (let j = -1; j <= 1; j++) {
+                        if (i === 0 && j === 0) continue;
+                        let nr = r + i, nc = c + j;
+                        if (nr >= 0 && nr < ROWS && nc >= 0 && nc < COLS) {
+                            actualNeighbors++;
+                        }
+                    }
+                }
+                expectedInfoGain = 2 * (actualNeighbors / maxNeighbors);
+            }
+            
+            let score = survivalProb * expectedInfoGain;
+            
+            cellScores.push({
+                r, c, key,
+                prob,
+                survivalProb,
+                infoGain: expectedInfoGain,
+                score,
+                isFrontier
+            });
+        }
+        
+        cellScores.sort((a, b) => {
+            if (a.prob === 0 && b.prob > 0) return -1;
+            if (b.prob === 0 && a.prob > 0) return 1;
+            if (a.prob === 0 && b.prob === 0) return b.infoGain - a.infoGain;
+            
+            let probDiff = Math.abs(a.prob - b.prob);
+            if (probDiff > 0.03) {
+                return a.prob - b.prob;
+            } else {
+                return b.infoGain - a.infoGain;
+            }
+        });
+        
+        for (let key in probData.cells) {
+            let {prob} = probData.cells[key];
+            if (prob >= 1) {
+                let [r, c] = key.split(',').map(Number);
+                let overlay = document.createElement('div');
+                overlay.className = 'prob-overlay';
+                overlay.innerHTML = `100%`;
+                overlay.style.backgroundColor = "rgba(248, 81, 73, 0.9)";
+                grid[r][c].element.appendChild(overlay);
+            }
+        }
+        
+        for (let cell of cellScores) {
+            let overlay = document.createElement('div');
+            overlay.className = 'prob-overlay';
+            
+            let percent = Math.round(cell.prob * 100);
+            let infoStr = cell.infoGain.toFixed(1);
+            
+            overlay.innerHTML = `${percent}%<span class="entropy">E:${infoStr}</span>`;
+            
+            if (percent === 100) overlay.style.backgroundColor = "rgba(248, 81, 73, 0.9)";
+            else if (percent === 0) overlay.style.backgroundColor = "rgba(46, 160, 67, 0.8)";
+            else if (percent > 50) overlay.style.backgroundColor = `rgba(219, 109, 40, ${cell.prob})`;
+            else overlay.style.backgroundColor = `rgba(88, 166, 255, ${cell.prob + 0.2})`;
+
+            grid[cell.r][cell.c].element.appendChild(overlay);
+        }
+        
+        if (cellScores.length > 0) {
+            let best = cellScores[0];
+            grid[best.r][best.c].element.classList.add('best-pick');
+            
+            let similarProb = cellScores.filter(c => 
+                Math.abs(c.prob - best.prob) < 0.05 && c.key !== best.key
+            );
+            
+            let recommendation = `<strong>🎯 Best move: (${best.r}, ${best.c})</strong><br>`;
+            recommendation += `Survival: ${Math.round(best.survivalProb * 100)}% | Info Gain: ${best.infoGain.toFixed(2)}<br>`;
+            
+            if (similarProb.length > 0) {
+                recommendation += `<br><em>Other cells with ~${Math.round(best.prob * 100)}% mine chance:</em><br>`;
+                similarProb.slice(0, 3).forEach(c => {
+                    recommendation += `(${c.r},${c.c}): Info ${c.infoGain.toFixed(2)} `;
+                });
+                recommendation += `<br><br>💡 Same survival odds, but best pick reveals more info!`;
+            }
+            
+            document.getElementById('recommendation').innerHTML = recommendation;
+        }
+        
+        document.getElementById('game-status').innerText = `Entropy analysis complete`;
+    }
+
+    initGame();
+</script>
+
+<!-- About Section for SEO -->
+<footer style="max-width: 800px; margin: 40px auto 20px; padding: 30px; background: var(--grid-bg); border-radius: 8px; border: 1px solid #30363d; color: var(--text-color); font-size: 0.9rem; line-height: 1.6;">
+    <h2 style="color: var(--accent); margin-top: 0; font-size: 1.3rem;">About The Monte Carlo Minesweeper</h2>
+    
+    <section style="margin-bottom: 20px;">
+        <h3 style="color: var(--entropy); font-size: 1.1rem; margin-bottom: 10px;">What Makes This Minesweeper Special?</h3>
+        <p>The Monte Carlo Minesweeper is an advanced implementation of the classic puzzle game that combines traditional gameplay with cutting-edge probability theory and artificial intelligence. Unlike standard minesweeper games, this version provides players with powerful analytical tools to make informed decisions based on mathematical calculations.</p>
+    </section>
+    
+    <section style="margin-bottom: 20px;">
+        <h3 style="color: var(--entropy); font-size: 1.1rem; margin-bottom: 10px;">Key Features</h3>
+        <ul style="margin: 10px 0; padding-left: 20px;">
+            <li><strong>Monte Carlo Simulation:</strong> Calculate precise survival probabilities for each unrevealed cell using Monte Carlo methods and constraint satisfaction algorithms.</li>
+            <li><strong>Entropy Analysis:</strong> Go beyond probability with information theory. The entropy calculator identifies moves that provide maximum information gain, helping you make strategic choices when multiple cells have similar mine probabilities.</li>
+            <li><strong>AI-Powered Recommendations:</strong> Get intelligent suggestions for optimal moves based on both survival probability and expected information gain.</li>
+            <li><strong>Real-Time Visualization:</strong> See probability percentages and entropy values overlaid directly on the game board for instant strategic insights.</li>
+            <li><strong>Chord Clicking:</strong> Advanced gameplay mechanics allow experienced players to clear multiple cells efficiently when sufficient mines are flagged.</li>
+        </ul>
+    </section>
+    
+    <section style="margin-bottom: 20px;">
+        <h3 style="color: var(--entropy); font-size: 1.1rem; margin-bottom: 10px;">How to Play</h3>
+        <p>The game board is a 16×16 grid containing 60 hidden mines. Click cells to reveal them - if you hit a mine, the game ends. Numbers indicate how many mines are adjacent to that cell. Right-click to place flags on suspected mines. Use the probability calculator to see your odds of survival for each cell, or activate entropy analysis to find the move that will reveal the most useful information.</p>
+    </section>
+    
+    <section style="margin-bottom: 20px;">
+        <h3 style="color: var(--entropy); font-size: 1.1rem; margin-bottom: 10px;">Technology & Strategy</h3>
+        <p>This game implements advanced algorithms including backtracking search for constraint satisfaction, binomial coefficient calculations for configuration weighting, and Shannon entropy formulas for information gain measurement. Whether you're a casual player looking to improve your win rate or a mathematician interested in probability applications, The Monte Carlo Minesweeper offers depth and insight into optimal decision-making under uncertainty.</p>
+    </section>
+    
+    <section style="margin-bottom: 20px;">
+        <h3 style="color: var(--entropy); font-size: 1.1rem; margin-bottom: 10px;">Learning & Strategy Tips</h3>
+        <p>Beginners should start by using the probability calculator to understand which cells are safest. As you advance, the entropy analysis will teach you when to prioritize information gathering over purely safe moves. The game demonstrates principles from game theory, information theory, and probabilistic reasoning - making it both an entertaining puzzle and an educational tool for understanding decision-making algorithms.</p>
+    </section>
+    
+    <p style="text-align: center; margin-top: 30px; padding-top: 20px; border-top: 1px solid #30363d; color: #8b949e; font-size: 0.85rem;">
+        Play for free • No registration required • Works on all devices<br>
+        <span style="margin-top: 10px; display: inline-block;">© 2026 Monte Carlo Minesweeper - Advanced Strategy Gaming</span>
+    </p>
+</footer>
+
+</body>
+</html>
